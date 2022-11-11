@@ -6,3 +6,11 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+.smart-links-setting-section .settings-delete-btn {
+    color: red;
+}
+.smart-links-setting-section .smart-links-setting-error {
+    color: red;
+    border-color: red;
+}

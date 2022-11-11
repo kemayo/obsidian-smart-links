@@ -1,81 +1,55 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownRenderChild, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
 // Remember to rename these classes and interfaces!
 
-interface MyPluginSettings {
-	mySetting: string;
+interface SmartLinksSettings {
+	patterns: [{regexp: string, replacement: string}];
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+class SmartLinksPattern {
+	regexp: RegExp;
+	replacement: string;
+	constructor(pattern: string, replacement: string) {
+		this.regexp = new RegExp(`\\b${pattern}`);
+		this.replacement = replacement;
+	}
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+const DEFAULT_SETTINGS: SmartLinksSettings = {
+	patterns: [
+		{regexp: 'T(\\d+)', replacement: 'https://phabricator.wikimedia.org/T$1'},
+	],
+}
+
+const isTextNodeMatchingLinkPatterns = (n: Node, ps: SmartLinksPattern[]): boolean => {
+	if (n.nodeType !== n.TEXT_NODE) {
+		return false;
+	}
+	for (const pattern of ps) {
+		if (n.textContent?.match(pattern.regexp)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+export default class SmartLinks extends Plugin {
+	settings: SmartLinksSettings;
+	patterns: SmartLinksPattern[] = [];
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
-
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new SmartLinksSettingTab(this.app, this));
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		this.registerMarkdownPostProcessor((element, context) => {
+			element.querySelectorAll("p, li").forEach((el) => {
+				if (this.anyReplacableNodes(el)) {
+					context.addChild(new SmartLinkContainer(el as HTMLElement, this));
+				}
+			})
+		})
 	}
 
 	onunload() {
@@ -84,35 +58,46 @@ export default class MyPlugin extends Plugin {
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.rebuildPatterns();
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		this.rebuildPatterns();
+	}
+
+	rebuildPatterns() {
+		this.patterns = [];
+		this.settings.patterns.forEach((pattern) => {
+			try {
+				this.patterns.push(new SmartLinksPattern(pattern.regexp, pattern.replacement));
+			} catch (e) {
+				// it's a user-input regex; I just want to avoid it outright dying here
+			}
+		})
+	}
+
+	anyReplacableNodes = (el: Element): boolean => {
+		for (let i = 0; i < el.childNodes.length; i++) {
+			const child = el.childNodes[i];
+			if (isTextNodeMatchingLinkPatterns(child, this.patterns)) {
+				return true;
+			}
+		}
+		return false;
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+class SmartLinksSettingTab extends PluginSettingTab {
+	plugin: SmartLinks;
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: SmartLinks) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	refresh(): void {
+		this.display();
 	}
 
 	display(): void {
@@ -120,18 +105,146 @@ class SampleSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
+		containerEl.createEl('h2', {text: 'Settings for Smart Links.'});
 
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
+		// This might be abusing the settings system a bit?
+		this.plugin.settings.patterns.forEach((pattern, index) => {
+			const data = { ...pattern }; // because we don't want to insta-save
+			const setting = this.makePatternRow(containerEl, `#${index}`, data)
+			.addButton((button) => {
+				button.setButtonText("Save").onClick(async (evt) => {
+					this.plugin.settings.patterns[index] = data;
 					await this.plugin.saveSettings();
-				}));
+					this.refresh();
+				})
+			}).addButton((button) => {
+				button.setButtonText("Remove").setClass("settings-delete-btn")
+				.onClick(async (evt) => {
+					this.plugin.settings.patterns.splice(index, 1);
+					await this.plugin.saveSettings();
+					this.refresh();
+				});
+			});
+		});
+		const data = {regexp: '', replacement: ''};
+		const setting = this.makePatternRow(containerEl, "New", data).addButton((button) => {
+			button.setButtonText("Add").onClick(async (evt) => {
+				if (!(data.regexp && data.replacement) || setting.controlEl.querySelector('.smart-links-setting-error')) {
+					return;
+				}
+				this.plugin.settings.patterns.push(data);
+				await this.plugin.saveSettings();
+				this.refresh();
+			});
+		});
+	}
+
+	makePatternRow(containerEl: HTMLElement, label: string, data: {regexp: string, replacement: string}): Setting {
+		const rowClass = 'smart-links-setting-section';
+		const setting = new Setting(containerEl).setClass(rowClass);
+		setting.setName(label);
+		setting.addText((text) => {
+			text.setValue(data.regexp)
+				.setPlaceholder("Regular expression").onChange((value) => {
+					try {
+						new RegExp(`\\b${value}`);
+						text.inputEl.removeClass('smart-links-setting-error');
+					} catch (error) {
+						text.inputEl.addClass('smart-links-setting-error');
+					}
+					data.regexp = value;
+				});
+		});
+		setting.addText((text) => {
+			text.setValue(data.replacement)
+				.setPlaceholder("Replacement").onChange((value) => {
+					try {
+						const regexp = new RegExp(`\\b${data.regexp}`);
+						"Arbitrary text".replace(regexp, value);
+						text.inputEl.removeClass('smart-links-setting-error');
+					} catch (error) {
+						text.inputEl.addClass('smart-links-setting-error');
+					}
+					data.replacement = value;
+				});
+		});
+		return setting;
+	}
+}
+
+class SmartLinkContainer extends MarkdownRenderChild {
+	plugin: SmartLinks;
+	constructor(containerEl: HTMLElement, plugin: SmartLinks) {
+		super(containerEl);
+
+		this.plugin = plugin;
+	}
+
+	onload(): void {
+		this.containerEl.setChildrenInPlace(
+			this.buildNodeReplacements(this.containerEl)
+		);
+	}
+
+	buildNodeReplacements(containerEl: HTMLElement): Node[] {
+		const results: Node[] = [];
+
+		containerEl.childNodes.forEach((node) => {
+			if (!isTextNodeMatchingLinkPatterns(node, this.plugin.patterns)) {
+				// pass through nodes not matching the pattern
+				results.push(node);
+				return;
+			}
+			let remaining = node.textContent || "";
+
+			while (remaining) {
+				const nextLink = this.parseNextLink(remaining);
+				if (!nextLink.found) {
+					results.push(document.createTextNode(nextLink.remaining));
+					break;
+				}
+				results.push(document.createTextNode(nextLink.preText));
+				results.push(this.createLinkTag(containerEl, nextLink.link, nextLink.href));
+				remaining = nextLink.remaining;
+			}
+		});
+
+		return results;
+	}
+
+	parseNextLink(text: string):
+		| { found: false; remaining: string }
+		| { found: true; preText: string; link: string; href: string; remaining: string }
+	{
+		let result, href;
+		for (let pattern of this.plugin.patterns) {
+			result = text.match(pattern.regexp);
+			if (result) {
+				href = result[0].replace(pattern.regexp, pattern.replacement);
+				break;
+			}
+		}
+		if (!result || !href) {
+			return { found: false, remaining: text };
+		}
+
+		const preText = text.slice(0, result.index);
+		const link = result[0];
+		const remaining = text.slice((result.index ?? 0) + link.length);
+		return { found: true, preText, link, href, remaining };
+	}
+
+	createLinkTag(el: Element, link: string, href: string): Element {
+		return el.createEl("a", {
+			cls: "external-link",
+			href,
+			text: link,
+			attr: {
+				"aria-label": href,
+				"aria-label-position": "top",
+				rel: "noopener",
+				target: "_blank",
+			}
+		})
 	}
 }
