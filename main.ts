@@ -96,7 +96,7 @@ class SmartLinksSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Settings for Smart Links.'});
+		containerEl.createEl('h2', {text: 'Settings for Smart Links'});
 
 		// This might be abusing the settings system a bit?
 		this.plugin.settings.patterns.forEach((pattern, index) => {
