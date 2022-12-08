@@ -1,10 +1,15 @@
 // This is mostly broken out for testability
 
+// This is a custom lookbehind which I'm using instead of \b, because I want links
+// following non-word characters to be detectable. All patterns will match so long
+// as they follow either the start of the string/line or any whitespace character.
+const boundary = "(?<=^| |\t)";
+
 export class SmartLinksPattern {
 	regexp: RegExp;
 	replacement: string;
 	constructor(pattern: string, replacement: string) {
-		this.regexp = new RegExp(`\\b${pattern}`);
+		this.regexp = new RegExp(`${boundary}${pattern}`);
 		this.replacement = replacement;
 	}
     match(text: string) : RegExpMatchArray|null {

@@ -14,6 +14,7 @@ test('SmartLinkPattern creation', () => {
 test('parseNextLink', () => {
     const patterns = [
         new SmartLinksPattern("T(\\d+)", "https://phabricator.wikimedia.org/T$1"),
+        new SmartLinksPattern("\\$([A-Z]+)", "https://finance.yahoo.com/quote/$1"),
     ];
     expect(parseNextLink("Unrelated text", patterns)).toStrictEqual({found:false, remaining:"Unrelated text"});
     expect(parseNextLink("T1234", patterns)).toStrictEqual({
@@ -40,5 +41,19 @@ test('parseNextLink', () => {
     expect(parseNextLink("TICKET1234", patterns)).toStrictEqual({
         found: false,
         remaining: "TICKET1234",
+    });
+    expect(parseNextLink("$GOOG", patterns)).toStrictEqual({
+        found: true,
+        preText: "",
+        link: "$GOOG",
+        href: "https://finance.yahoo.com/quote/GOOG",
+        remaining: "",
+    });
+    expect(parseNextLink(" $GOOG ", patterns)).toStrictEqual({
+        found: true,
+        preText: " ",
+        link: "$GOOG",
+        href: "https://finance.yahoo.com/quote/GOOG",
+        remaining: " ",
     });
 });
