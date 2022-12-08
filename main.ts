@@ -1,18 +1,9 @@
 import { App, Editor, MarkdownRenderChild, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
-// Remember to rename these classes and interfaces!
+import { SmartLinksPattern, parseNextLink } from 'replacements';
 
 interface SmartLinksSettings {
 	patterns: [{regexp: string, replacement: string}];
-}
-
-class SmartLinksPattern {
-	regexp: RegExp;
-	replacement: string;
-	constructor(pattern: string, replacement: string) {
-		this.regexp = new RegExp(`\\b${pattern}`);
-		this.replacement = replacement;
-	}
 }
 
 const DEFAULT_SETTINGS: SmartLinksSettings = {
@@ -26,7 +17,7 @@ const isTextNodeMatchingLinkPatterns = (n: Node, ps: SmartLinksPattern[]): boole
 		return false;
 	}
 	for (const pattern of ps) {
-		if (n.textContent?.match(pattern.regexp)) {
+		if (n.textContent && pattern.match(n.textContent)) {
 			return true;
 		}
 	}
@@ -198,7 +189,7 @@ class SmartLinkContainer extends MarkdownRenderChild {
 			let remaining = node.textContent || "";
 
 			while (remaining) {
-				const nextLink = this.parseNextLink(remaining);
+				const nextLink = parseNextLink(remaining, this.plugin.patterns);
 				if (!nextLink.found) {
 					results.push(document.createTextNode(nextLink.remaining));
 					break;
@@ -210,28 +201,6 @@ class SmartLinkContainer extends MarkdownRenderChild {
 		});
 
 		return results;
-	}
-
-	parseNextLink(text: string):
-		| { found: false; remaining: string }
-		| { found: true; preText: string; link: string; href: string; remaining: string }
-	{
-		let result, href;
-		for (let pattern of this.plugin.patterns) {
-			result = text.match(pattern.regexp);
-			if (result) {
-				href = result[0].replace(pattern.regexp, pattern.replacement);
-				break;
-			}
-		}
-		if (!result || !href) {
-			return { found: false, remaining: text };
-		}
-
-		const preText = text.slice(0, result.index);
-		const link = result[0];
-		const remaining = text.slice((result.index ?? 0) + link.length);
-		return { found: true, preText, link, href, remaining };
 	}
 
 	createLinkTag(el: Element, link: string, href: string): Element {
