@@ -10,11 +10,11 @@ Install and enable the plugin. Once you do, you'll find there's a new section in
 
 | Regular expression | Replacement                             |
 |--------------------|-----------------------------------------|
-| `T(\d+)`           | `https://phabricator.wikimedia.org/T$1` |
-| `(?:AAPL\|GOOG)`   | `https://finance.yahoo.com/quote/$&`    |
+| `T\d+`             | `https://phabricator.wikimedia.org/$&`  |
+| `\$([A-Z]+)`       | `https://finance.yahoo.com/quote/$1`    |
 | `go\/[_\d\w-/]+`   | `http://$&`                             |
 
-The replacements work using normal Javascript regular expression replacement syntax. I'm so very sorry.
+The replacements work using normal Javascript regular expression replacement syntax. I'm so very sorry. Remember that you'll need to escape characters with special meaning in regular expressions. Matches are restricted so they'll only occur immediately after either the start of a line or some whitespace.
 
 ## Credits
 
