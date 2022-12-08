@@ -17,17 +17,14 @@ export class SmartLinksPattern {
     }
 }
 
-export function parseNextLink(text: string, patterns: SmartLinksPattern[]):
+export function parseNextLink(text: string, pattern: SmartLinksPattern):
 		| { found: false; remaining: string }
 		| { found: true; preText: string; link: string; href: string; remaining: string }
 {
     let result, href;
-    for (let pattern of patterns) {
-        result = pattern.match(text);
-        if (result) {
-            href = result[0].replace(pattern.regexp, pattern.replacement);
-            break;
-        }
+    result = pattern.match(text);
+    if (result) {
+        href = result[0].replace(pattern.regexp, pattern.replacement);
     }
     if (!result || !href) {
         return { found: false, remaining: text };

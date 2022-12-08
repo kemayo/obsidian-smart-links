@@ -172,12 +172,14 @@ class SmartLinkContainer extends MarkdownRenderChild {
 	}
 
 	onload(): void {
-		this.containerEl.setChildrenInPlace(
-			this.buildNodeReplacements(this.containerEl)
-		);
+		for (let pattern of this.plugin.patterns) {
+			this.containerEl.setChildrenInPlace(
+				this.buildNodeReplacements(this.containerEl, pattern)
+			);
+		}
 	}
 
-	buildNodeReplacements(containerEl: HTMLElement): Node[] {
+	buildNodeReplacements(containerEl: HTMLElement, pattern: SmartLinksPattern): Node[] {
 		const results: Node[] = [];
 
 		containerEl.childNodes.forEach((node) => {
@@ -189,7 +191,7 @@ class SmartLinkContainer extends MarkdownRenderChild {
 			let remaining = node.textContent || "";
 
 			while (remaining) {
-				const nextLink = parseNextLink(remaining, this.plugin.patterns);
+				const nextLink = parseNextLink(remaining, pattern);
 				if (!nextLink.found) {
 					results.push(document.createTextNode(nextLink.remaining));
 					break;
