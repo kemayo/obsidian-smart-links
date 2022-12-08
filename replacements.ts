@@ -3,7 +3,7 @@
 // This is a custom lookbehind which I'm using instead of \b, because I want links
 // following non-word characters to be detectable. All patterns will match so long
 // as they follow either the start of the string/line or any whitespace character.
-const boundary = "(?<=^| |\t)";
+const boundary = "(?<=^| |\t|\n)";
 
 export class SmartLinksPattern {
 	regexp: RegExp;
