@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-smart-links",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "This is a plugin for Obsidian that allows users to define custom link formats",
 	"main": "main.js",
 	"scripts": {
