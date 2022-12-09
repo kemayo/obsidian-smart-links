@@ -1,19 +1,32 @@
 // This is mostly broken out for testability
 
-// This is a custom lookbehind which I'm using instead of \b, because I want links
-// following non-word characters to be detectable. All patterns will match so long
-// as they follow either the start of the string/line or any whitespace character.
-const boundary = "(?<=^| |\t|\n)";
+// Note to self: it'd be nice if I could just use a lookbehind pattern as the
+// start of my pattern, because then I don't have to make this a multi-stage
+// process. Unfortunately WebKit doesn't currently support that, and so iOS
+// Obsidian won't work with it.
+// WebKit bug for support: https://bugs.webkit.org/show_bug.cgi?id=174931
+// Desired code: `(?<=^| |\t|\n)` + making the match function simpler.
 
 export class SmartLinksPattern {
+    boundary: RegExp = /(^| |\t|\n)$/;
+
 	regexp: RegExp;
-	replacement: string;
+    replacement: string;
 	constructor(pattern: string, replacement: string) {
-		this.regexp = new RegExp(`${boundary}${pattern}`);
-		this.replacement = replacement;
+		this.regexp = new RegExp(pattern);
+    	this.replacement = replacement;
 	}
     match(text: string) : RegExpMatchArray|null {
-        return text.match(this.regexp);
+        const match = text.match(this.regexp);
+        if (match) {
+            // Because of the above-mentioned lookbehind issue we're doing a
+            // second check here, as a manual lookbehind.
+            const preceding = text.charAt((match.index ?? 0) - 1);
+            if (preceding.match(this.boundary)) {
+                return match;
+            }
+        }
+        return null;
     }
 }
 
