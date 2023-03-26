@@ -1,14 +1,14 @@
 import { App, Editor, MarkdownRenderChild, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
-import { SmartLinksPattern, parseNextLink } from 'replacements';
+import { SmartLinksPattern } from './replacements';
 
 interface SmartLinksSettings {
-	patterns: [{regexp: string, replacement: string}];
+	patterns: [{regexp: string, replacement: string, render: string}];
 }
 
 const DEFAULT_SETTINGS: SmartLinksSettings = {
 	patterns: [
-		{regexp: 'T(\\d+)', replacement: 'https://phabricator.wikimedia.org/T$1'},
+		{regexp: 'T(\\d+)', replacement: 'https://phabricator.wikimedia.org/T$1', render: "{}"},
 	],
 }
 
@@ -61,7 +61,7 @@ export default class SmartLinks extends Plugin {
 		this.patterns = [];
 		this.settings.patterns.forEach((pattern) => {
 			try {
-				this.patterns.push(new SmartLinksPattern(pattern.regexp, pattern.replacement));
+				this.patterns.push(new SmartLinksPattern(pattern.regexp, pattern.replacement, pattern.render));
 			} catch (e) {
 				// it's a user-input regex; I just want to avoid it outright dying here
 			}
@@ -92,7 +92,7 @@ class SmartLinksSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const {containerEl} = this;	
 
 		containerEl.empty();
 
@@ -117,7 +117,7 @@ class SmartLinksSettingTab extends PluginSettingTab {
 				});
 			});
 		});
-		const data = {regexp: '', replacement: ''};
+		const data = {regexp: '', replacement: '', render: ''};
 		const setting = this.makePatternRow(containerEl, "New", data).addButton((button) => {
 			button.setButtonText("Add").onClick(async (evt) => {
 				if (!(data.regexp && data.replacement) || setting.controlEl.querySelector('.smart-links-setting-error')) {
@@ -130,7 +130,7 @@ class SmartLinksSettingTab extends PluginSettingTab {
 		});
 	}
 
-	makePatternRow(containerEl: HTMLElement, label: string, data: {regexp: string, replacement: string}): Setting {
+	makePatternRow(containerEl: HTMLElement, label: string, data: {regexp: string, replacement: string, render: string}): Setting {
 		const rowClass = 'smart-links-setting-section';
 		const setting = new Setting(containerEl).setClass(rowClass);
 		setting.setName(label);
@@ -159,6 +159,20 @@ class SmartLinksSettingTab extends PluginSettingTab {
 					data.replacement = value;
 				});
 		});
+		setting.addText((text) => {
+			text.setValue(data.render)
+				.setPlaceholder("Render").onChange((value) => {
+					try {
+						const regexp = new RegExp(`\\b${data.regexp}`);
+						"Arbitrary text".replace(regexp, value);
+						text.inputEl.removeClass('smart-links-setting-error');
+					} catch (error) {
+						text.inputEl.addClass('smart-links-setting-error');
+					}
+					data.render = value;
+				});
+		});
+
 		return setting;
 	}
 }
@@ -179,7 +193,7 @@ class SmartLinkContainer extends MarkdownRenderChild {
 		}
 	}
 
-	buildNodeReplacements(containerEl: HTMLElement, pattern: SmartLinksPattern): Node[] {
+	buildNodeReplacements(containerEl: HTMLElement, slp: SmartLinksPattern): Node[] {
 		const results: Node[] = [];
 
 		containerEl.childNodes.forEach((node) => {
@@ -188,34 +202,22 @@ class SmartLinkContainer extends MarkdownRenderChild {
 				results.push(node);
 				return;
 			}
+
 			let remaining = node.textContent || "";
 
 			while (remaining) {
-				const nextLink = parseNextLink(remaining, pattern);
-				if (!nextLink.found) {
-					results.push(document.createTextNode(nextLink.remaining));
+				if (!slp.match(remaining)) {
+					results.push(document.createTextNode(remaining));
 					break;
 				}
+
+				const nextLink = slp.parse(remaining);
 				results.push(document.createTextNode(nextLink.preText));
-				results.push(this.createLinkTag(containerEl, nextLink.link, nextLink.href));
+				results.push(nextLink.renderFn(containerEl));
 				remaining = nextLink.remaining;
 			}
 		});
 
 		return results;
-	}
-
-	createLinkTag(el: Element, link: string, href: string): Element {
-		return el.createEl("a", {
-			cls: "external-link",
-			href,
-			text: link,
-			attr: {
-				"aria-label": href,
-				"aria-label-position": "top",
-				rel: "noopener",
-				target: "_blank",
-			}
-		})
 	}
 }

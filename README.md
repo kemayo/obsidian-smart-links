@@ -30,6 +30,12 @@ Install and enable the plugin. Once you do, you'll find there's a new section in
 
 The replacements work using normal Javascript regular expression replacement syntax. I'm so very sorry. Remember that you'll need to escape characters with special meaning in regular expressions. Matches are restricted so they'll only occur immediately after either the start of a line or some whitespace.
 
+User can also dictate how the rendered link is to be presented in HTLM via the third field in the settings
+
+| Regular Expression  | Replacement                    | Presentation     | Sample Match | Sample Result                                                   |
+| ------------------- | ------------------------------ | ---------------- | ------------ | --------------------------------------------------------------- |
+| `COE([AVX])(\d{6})` | `https://company.com/coe/$1$2` | `COE:{🟧 $1:$2}` | coe:V123456  | `COE:<a href="https://company.com/coe/V123456">🟧 V:123456</a>` |
+
 ## Credits
 
 The reading-mode code was heavily influenced by [Obsidian GoLinks](https://github.com/xavdid/obsidian-golinks) -- this plugin is (arguably) a customizable superset of that one's functionality.
