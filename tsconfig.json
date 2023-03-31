@@ -9,16 +9,11 @@
     "noImplicitAny": true,
     "moduleResolution": "node",
     "importHelpers": true,
+    "esModuleInterop": true,
     "isolatedModules": true,
-	"strictNullChecks": true,
-    "lib": [
-      "DOM",
-      "ES5",
-      "ES6",
-      "ES7"
-    ]
+    "strictNullChecks": true,
+    "lib": [ "DOM", "esnext", "ES5", "ES6", "ES7" ]
   },
-  "include": [
-    "**/*.ts"
-  ]
+  "include": [ "**/*.ts" ],
+  "exclude": [ "node_modules" ]
 }
