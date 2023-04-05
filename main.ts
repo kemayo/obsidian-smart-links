@@ -1,6 +1,10 @@
 import { App, Editor, MarkdownRenderChild, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
-import { SmartLinksPattern, parseNextLink } from 'replacements';
+import { SmartLinksPattern, parseNextLink, createLinkTag, LinkPlugin } from 'replacements';
+
+import {
+	ViewPlugin,
+} from "@codemirror/view";
 
 interface SmartLinksSettings {
 	patterns: [{regexp: string, replacement: string}];
@@ -41,6 +45,15 @@ export default class SmartLinks extends Plugin {
 				}
 			})
 		})
+
+		this.registerEditorExtension(
+			ViewPlugin.define<LinkPlugin>(
+				(view) => new LinkPlugin(view, this),
+				{
+					decorations: (value: LinkPlugin) => value.decorations,
+				}
+			),
+		)
 	}
 
 	onunload() {
@@ -197,25 +210,11 @@ class SmartLinkContainer extends MarkdownRenderChild {
 					break;
 				}
 				results.push(document.createTextNode(nextLink.preText));
-				results.push(this.createLinkTag(containerEl, nextLink.link, nextLink.href));
+				results.push(createLinkTag(containerEl, nextLink.link, nextLink.href));
 				remaining = nextLink.remaining;
 			}
 		});
 
 		return results;
-	}
-
-	createLinkTag(el: Element, link: string, href: string): Element {
-		return el.createEl("a", {
-			cls: "external-link",
-			href,
-			text: link,
-			attr: {
-				"aria-label": href,
-				"aria-label-position": "top",
-				rel: "noopener",
-				target: "_blank",
-			}
-		})
 	}
 }
