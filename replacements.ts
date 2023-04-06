@@ -98,6 +98,11 @@ export class LinkPlugin implements PluginValue {
 			return builder.finish();
 		}
 
+		const additions: {
+			position: number;
+			decoration: Decoration;
+		}[] = [];
+
 		for (const { from, to } of view.visibleRanges) {
 			const text = view.state.sliceDoc(from, to);
 
@@ -111,14 +116,25 @@ export class LinkPlugin implements PluginValue {
 				const listCharFrom = from + match.index + match[0].length;
 				const href = match[0].replace(pattern.regexp, pattern.replacement);
 
-				builder.add(
-					listCharFrom,
-					listCharFrom,
-					Decoration.widget({
+				additions.push({
+					position: listCharFrom,
+					decoration: Decoration.widget({
 						widget: new LinkWidget(match[0], href),
 					})
-				);
+				});
 			}
+		}
+
+		// Sort additions by position
+		additions.sort((a, b) => a.position - b.position);
+
+		// Add decorations in sorted order
+		for (const { position, decoration } of additions) {
+			builder.add(
+				position,
+				position,
+				decoration
+			);
 		}
 
 		return builder.finish();
