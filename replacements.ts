@@ -63,7 +63,7 @@ export function parseNextLink(text: string, pattern: SmartLinksPattern):
 
 export function createLinkTag(el: Element, link: string, href: string): HTMLElement {
 	return el.createEl("a", {
-		cls: "external-link",
+		cls: "external-link smart-link",
 		href,
 		text: link,
 		attr: {
