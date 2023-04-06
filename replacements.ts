@@ -76,12 +76,10 @@ export function createLinkTag(el: Element, link: string, href: string): HTMLElem
 }
 
 export class LinkPlugin implements PluginValue {
-	plugin: SmartLinks;
 	decorations: DecorationSet;
 
-	constructor(view: EditorView, plugin: SmartLinks) {
+	constructor(view: EditorView, private plugin: SmartLinks) {
 		this.decorations = this.buildDecorations(view);
-		this.plugin = plugin;
 	}
 
 	update(update: ViewUpdate) {
@@ -95,7 +93,7 @@ export class LinkPlugin implements PluginValue {
 	buildDecorations(view: EditorView): DecorationSet {
 		const builder = new RangeSetBuilder<Decoration>();
 
-		if ( ! this.plugin?.patterns) {
+		if (! this.plugin?.patterns) {
 			return builder.finish();
 		}
 
