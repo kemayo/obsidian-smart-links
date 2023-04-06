@@ -43,7 +43,7 @@ export class SmartLinksPattern {
 
 export function parseNextLink(text: string, pattern: SmartLinksPattern):
 		| { found: false; remaining: string }
-		| { found: true; preText: string; link: string; href: string; remaining: string }
+		| { found: true; index: number, preText: string; link: string; href: string; remaining: string }
 {
 	let result, href;
 	result = pattern.match(text);
@@ -56,8 +56,9 @@ export function parseNextLink(text: string, pattern: SmartLinksPattern):
 
 	const preText = text.slice(0, result.index);
 	const link = result[0];
-	const remaining = text.slice((result.index ?? 0) + link.length);
-	return { found: true, preText, link, href, remaining };
+	const index = (result.index ?? 0);
+	const remaining = text.slice(index + link.length);
+	return { found: true, index, preText, link, href, remaining };
 }
 
 export function createLinkTag(el: Element, link: string, href: string): HTMLElement {
@@ -107,21 +108,35 @@ export class LinkPlugin implements PluginValue {
 			const text = view.state.sliceDoc(from, to);
 
 			for (const pattern of this.plugin.patterns) {
-				const match = pattern.match(text);
+				let remaining = text;
+				let listCharFrom = from;
 
-				if (! match || ! match.index) {
-					continue;
+				while (remaining) {
+					const nextLink = parseNextLink(remaining, pattern);
+
+					if (!nextLink.found) {
+						break;
+					}
+
+					const match = pattern.match(remaining);
+
+					if (! match || ! match.index) {
+						break;
+					}
+
+					listCharFrom += match.index + match[0].length;
+
+					const href = match[0].replace(pattern.regexp, pattern.replacement);
+
+					additions.push({
+						position: listCharFrom,
+						decoration: Decoration.widget({
+							widget: new LinkWidget(match[0], href),
+						})
+					});
+
+					remaining = nextLink.remaining;
 				}
-
-				const listCharFrom = from + match.index + match[0].length;
-				const href = match[0].replace(pattern.regexp, pattern.replacement);
-
-				additions.push({
-					position: listCharFrom,
-					decoration: Decoration.widget({
-						widget: new LinkWidget(match[0], href),
-					})
-				});
 			}
 		}
 
