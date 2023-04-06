@@ -14,3 +14,6 @@ If your plugin does not need CSS, delete this file.
     color: red;
     border-color: red;
 }
+.markdown-source-view:not(.is-live-preview) .smart-link {
+    display: none;
+}

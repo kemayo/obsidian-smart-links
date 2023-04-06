@@ -7,6 +7,17 @@
 // WebKit bug for support: https://bugs.webkit.org/show_bug.cgi?id=174931
 // Desired code: `(?<=^| |\t|\n)` + making the match function simpler.
 
+import { RangeSetBuilder } from "@codemirror/state";
+import {
+	Decoration,
+	DecorationSet,
+	EditorView,
+	PluginValue,
+	ViewUpdate,
+	WidgetType
+} from "@codemirror/view";
+import SmartLinks from "main";
+
 export class SmartLinksPattern {
 	boundary: RegExp = /(^| |\t|\n)$/;
 
@@ -32,7 +43,7 @@ export class SmartLinksPattern {
 
 export function parseNextLink(text: string, pattern: SmartLinksPattern):
 		| { found: false; remaining: string }
-		| { found: true; preText: string; link: string; href: string; remaining: string }
+		| { found: true; index: number, preText: string; link: string; href: string; remaining: string }
 {
 	let result, href;
 	result = pattern.match(text);
@@ -45,6 +56,100 @@ export function parseNextLink(text: string, pattern: SmartLinksPattern):
 
 	const preText = text.slice(0, result.index);
 	const link = result[0];
-	const remaining = text.slice((result.index ?? 0) + link.length);
-	return { found: true, preText, link, href, remaining };
+	const index = (result.index ?? 0);
+	const remaining = text.slice(index + link.length);
+	return { found: true, index, preText, link, href, remaining };
+}
+
+export function createLinkTag(el: Element, link: string, href: string): HTMLElement {
+	return el.createEl("a", {
+		cls: "external-link smart-link",
+		href,
+		text: link,
+		attr: {
+			"aria-label": href,
+			"aria-label-position": "top",
+			rel: "noopener",
+			target: "_blank",
+		}
+	})
+}
+
+export class LinkPlugin implements PluginValue {
+	decorations: DecorationSet;
+
+	constructor(view: EditorView, private plugin: SmartLinks) {
+		this.decorations = this.buildDecorations(view);
+	}
+
+	update(update: ViewUpdate) {
+		if (update.docChanged || update.viewportChanged) {
+			this.decorations = this.buildDecorations(update.view);
+		}
+	}
+
+	destroy() { }
+
+	buildDecorations(view: EditorView): DecorationSet {
+		const builder = new RangeSetBuilder<Decoration>();
+
+		if (! this.plugin?.patterns) {
+			return builder.finish();
+		}
+
+		const additions: {
+			position: number;
+			decoration: Decoration;
+		}[] = [];
+
+		for (const { from, to } of view.visibleRanges) {
+			const text = view.state.sliceDoc(from, to);
+
+			for (const pattern of this.plugin.patterns) {
+				let remaining = text;
+				let listCharFrom = from;
+
+				while (remaining) {
+					const nextLink = parseNextLink(remaining, pattern);
+
+					if (!nextLink.found) {
+						break;
+					}
+
+					listCharFrom += nextLink.index + nextLink.link.length;
+
+					additions.push({
+						position: listCharFrom,
+						decoration: Decoration.widget({
+							widget: new LinkWidget(nextLink.link, nextLink.href),
+						})
+					});
+
+					remaining = nextLink.remaining;
+				}
+			}
+		}
+
+		// Sort additions by position
+		additions.sort((a, b) => a.position - b.position);
+
+		// Add decorations in sorted order
+		for (const { position, decoration } of additions) {
+			builder.add(position, position, decoration);
+		}
+
+		return builder.finish();
+	}
+}
+
+export class LinkWidget extends WidgetType {
+	constructor(private text:string, private link:string) {
+		super();
+	}
+
+	toDOM(view: EditorView): HTMLElement {
+		const el = document.createElement("span");
+
+		return createLinkTag(el, this.text, this.link);
+	}
 }
