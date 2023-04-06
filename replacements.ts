@@ -95,7 +95,7 @@ export class LinkPlugin implements PluginValue {
 	buildDecorations(view: EditorView): DecorationSet {
 		const builder = new RangeSetBuilder<Decoration>();
 
-		if ( ! this.plugin || ! this.plugin.patterns) {
+		if ( ! this.plugin?.patterns) {
 			return builder.finish();
 		}
 
@@ -118,20 +118,12 @@ export class LinkPlugin implements PluginValue {
 						break;
 					}
 
-					const match = pattern.match(remaining);
-
-					if (! match || ! match.index) {
-						break;
-					}
-
-					listCharFrom += match.index + match[0].length;
-
-					const href = match[0].replace(pattern.regexp, pattern.replacement);
+					listCharFrom += nextLink.index + nextLink.link.length;
 
 					additions.push({
 						position: listCharFrom,
 						decoration: Decoration.widget({
-							widget: new LinkWidget(match[0], href),
+							widget: new LinkWidget(nextLink.link, nextLink.href),
 						})
 					});
 
@@ -145,11 +137,7 @@ export class LinkPlugin implements PluginValue {
 
 		// Add decorations in sorted order
 		for (const { position, decoration } of additions) {
-			builder.add(
-				position,
-				position,
-				decoration
-			);
+			builder.add(position, position, decoration);
 		}
 
 		return builder.finish();
@@ -157,14 +145,8 @@ export class LinkPlugin implements PluginValue {
 }
 
 export class LinkWidget extends WidgetType {
-	text: string;
-	link: string;
-
-	constructor(text:string, link:string) {
+	constructor(private text:string, private link:string) {
 		super();
-
-		this.text = text;
-		this.link = link;
 	}
 
 	toDOM(view: EditorView): HTMLElement {
